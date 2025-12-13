@@ -81,24 +81,7 @@ export function formatSeconds(secs: number): string {
   return hh > 0 ? `${pad(hh)}:${pad(mm)}:${pad(ss)}` : `${pad(mm)}:${pad(ss)}`;
 }
 
-export function loadCues(episodeKey: string): SubtitleCue[] {
-  const cached = cueCache.get(episodeKey);
-  if (cached) return cached;
-
-  const cfg = getEpisodeConfig(episodeKey);
-  if (!cfg) {
-    cueCache.set(episodeKey, []);
-    return [];
-  }
-
-  const srtPath = path.join(dataDir(), cfg.srt.replace(/^\.\//, ""));
-  let content: string;
-  try {
-    content = fs.readFileSync(srtPath, "utf8");
-  } catch {
-    cueCache.set(episodeKey, []);
-    return [];
-  }
+function parseSrtContent(content: string): SubtitleCue[] {
   const lines = content.split(/\r?\n/);
 
   const cues: SubtitleCue[] = [];
@@ -132,8 +115,40 @@ export function loadCues(episodeKey: string): SubtitleCue[] {
     cues.push({ index, startMs, endMs, text });
   }
 
-  cueCache.set(episodeKey, cues);
   return cues;
+}
+
+function loadCuesFromFile(cacheKey: string, srtPath: string): SubtitleCue[] {
+  const cached = cueCache.get(cacheKey);
+  if (cached) return cached;
+
+  let content: string;
+  try {
+    content = fs.readFileSync(srtPath, "utf8");
+  } catch {
+    cueCache.set(cacheKey, []);
+    return [];
+  }
+
+  const cues = parseSrtContent(content);
+  cueCache.set(cacheKey, cues);
+  return cues;
+}
+
+export function loadCues(episodeKey: string): SubtitleCue[] {
+  const cfg = getEpisodeConfig(episodeKey);
+  if (!cfg) {
+    cueCache.set(episodeKey, []);
+    return [];
+  }
+
+  const srtPath = path.join(dataDir(), cfg.srt.replace(/^\.\//, ""));
+  return loadCuesFromFile(episodeKey, srtPath);
+}
+
+export function loadAiCues(episodeKey: string): SubtitleCue[] {
+  const srtPath = path.join(dataDir(), "srt_ai", `${episodeKey}.srt`);
+  return loadCuesFromFile(`ai:${episodeKey}`, srtPath);
 }
 
 export function normalizeForSearch(s: string): string {

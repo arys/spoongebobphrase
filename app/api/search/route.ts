@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   extractYouTubeId,
   formatSeconds,
-  getAllEpisodeConfigs,
   getEpisodeConfig,
+  listEpisodeKeys,
+  loadAiCues,
   loadCues,
   normalizeForSearch,
 } from "@/app/lib/subtitles";
@@ -49,7 +50,7 @@ function buildResult(params: {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const qRaw = (searchParams.get("q") ?? "").trim();
-  const episodeParam = (searchParams.get("episode") ?? "s1e1").trim();
+  const episodeParam = (searchParams.get("episode") ?? "all").trim();
 
   if (!qRaw) {
     return NextResponse.json(
@@ -69,7 +70,7 @@ export async function GET(req: NextRequest) {
   const results: SearchResult[] = [];
 
   const episodeKeys =
-    episodeParam === "all" ? Object.keys(getAllEpisodeConfigs()) : [episodeParam];
+    episodeParam === "all" ? listEpisodeKeys() : [episodeParam];
 
   for (const episodeKey of episodeKeys) {
     const cfg = getEpisodeConfig(episodeKey);
@@ -78,25 +79,28 @@ export async function GET(req: NextRequest) {
     const videoId = extractYouTubeId(cfg.youtube_url);
     if (!videoId) continue;
 
-    const cues = loadCues(episodeKey);
-    for (const cue of cues) {
-      if (!cue.text) continue;
-      const hay = normalizeForSearch(cue.text);
-      if (!hay.includes(q)) continue;
+    const cueGroups = [loadAiCues(episodeKey), loadCues(episodeKey)];
+    for (const cues of cueGroups) {
+      for (const cue of cues) {
+        if (!cue.text) continue;
+        const hay = normalizeForSearch(cue.text);
+        if (!hay.includes(q)) continue;
 
-      const startSec = Math.max(0, Math.floor(cue.startMs / 1000));
-      const endSec = Math.max(startSec, Math.floor(cue.endMs / 1000));
-      results.push(
-        buildResult({
-          episodeKey,
-          cueIndex: cue.index,
-          startSec,
-          endSec,
-          text: cue.text,
-          videoId,
-        })
-      );
+        const startSec = Math.max(0, Math.floor(cue.startMs / 1000));
+        const endSec = Math.max(startSec, Math.floor(cue.endMs / 1000));
+        results.push(
+          buildResult({
+            episodeKey,
+            cueIndex: cue.index,
+            startSec,
+            endSec,
+            text: cue.text,
+            videoId,
+          })
+        );
 
+        if (results.length >= 50) break;
+      }
       if (results.length >= 50) break;
     }
 

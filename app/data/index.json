@@ -18,5 +18,61 @@
   "s1e5": {
     "youtube_url": "https://www.youtube.com/watch?v=spWiWzbtVx4",
     "srt": "./s1e5.srt"
+  },
+  "s1e6": {
+    "youtube_url": "https://www.youtube.com/watch?v=6rMW0M9VfZ8",
+    "srt": "./s1e6.srt"
+  },
+  "s1e7": {
+    "youtube_url": "https://www.youtube.com/watch?v=bptNc5h0Mik",
+    "srt": "./s1e7.srt"
+  },
+  "s1e8": {
+    "youtube_url": "https://www.youtube.com/watch?v=qjufkgTajeU",
+    "srt": "./s1e8.srt"
+  },
+  "s1e9": {
+    "youtube_url": "https://www.youtube.com/watch?v=5Zx6WTO_D6Q",
+    "srt": "./s1e9.srt"
+  },
+  "s1e10": {
+    "youtube_url": "https://www.youtube.com/watch?v=apTSEJuwhbo",
+    "srt": "./s1e10.srt"
+  },
+  "s1e11": {
+    "youtube_url": "https://www.youtube.com/watch?v=TAQLzJHnS6o",
+    "srt": "./s1e11.srt"
+  },
+  "s1e12": {
+    "youtube_url": "https://www.youtube.com/watch?v=n28bNn0c-Pk",
+    "srt": "./s1e12.srt"
+  },
+  "s1e13": {
+    "youtube_url": "https://www.youtube.com/watch?v=EgS-8lvI5Jg",
+    "srt": "./s1e13.srt"
+  },
+  "s1e14": {
+    "youtube_url": "https://www.youtube.com/watch?v=EcLhBHqcpTQ",
+    "srt": "./s1e14.srt"
+  },
+  "s1e16": {
+    "youtube_url": "https://www.youtube.com/watch?v=C849E2Z-TFg",
+    "srt": "./s1e16.srt"
+  },
+  "s1e17": {
+    "youtube_url": "https://www.youtube.com/watch?v=hE807Hxp3XI",
+    "srt": "./s1e17.srt"
+  },
+  "s1e18": {
+    "youtube_url": "https://www.youtube.com/watch?v=OWzrf5tAi8U",
+    "srt": "./s1e18.srt"
+  },
+  "s1e19": {
+    "youtube_url": "https://www.youtube.com/watch?v=EBjLirfTxEc",
+    "srt": "./s1e19.srt"
+  },
+  "s1e20": {
+    "youtube_url": "https://www.youtube.com/watch?v=zqlInh_gkIg",
+    "srt": "./s1e20.srt"
   }
 }

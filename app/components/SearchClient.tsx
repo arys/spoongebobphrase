@@ -29,7 +29,6 @@ export function SearchClient() {
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<SearchResult[]>([]);
   const abortRef = useRef<AbortController | null>(null);
-  const firstSearchRef = useRef(true);
 
   const selected = useMemo(
     () => (results.length ? results[0] : null),
@@ -93,17 +92,9 @@ export function SearchClient() {
   }
 
   useEffect(() => {
-    const trimmed = q.trim();
-    if (!trimmed) return;
-    if (firstSearchRef.current) {
-      firstSearchRef.current = false;
-      void runSearch(q);
-      return;
-    }
-
-    const handle = window.setTimeout(() => void runSearch(q), 3000);
-    return () => window.clearTimeout(handle);
-  }, [q]);
+    void runSearch(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="min-h-dvh">
@@ -154,17 +145,32 @@ export function SearchClient() {
 
       <div className="fixed inset-x-0 bottom-0 border-t border-black/10 bg-zinc-50/95 px-4 py-3 backdrop-blur dark:border-white/15 dark:bg-black/80 sm:px-8">
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-2">
-          <div className="grid gap-2">
-            <input
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
-                setError(null);
-              }}
-              placeholder="Например: важно потом раскачивается"
-              className="h-12 w-full rounded-xl border border-black/10 bg-white px-4 text-base outline-none ring-0 transition focus:border-black/30 dark:border-white/15 dark:bg-black"
-            />
-          </div>
+          <form
+            className="grid gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void runSearch(q);
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <input
+                value={q}
+                onChange={(e) => {
+                  setQ(e.target.value);
+                  setError(null);
+                }}
+                placeholder="Например: важно потом раскачивается"
+                className="h-12 w-full rounded-xl border border-black/10 bg-white px-4 text-base outline-none ring-0 transition focus:border-black/30 dark:border-white/15 dark:bg-black"
+              />
+              <button
+                type="submit"
+                disabled={loading}
+                className="h-12 shrink-0 rounded-xl bg-black px-4 text-base font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-black"
+              >
+                Поиск
+              </button>
+            </div>
+          </form>
           <div className="flex items-center justify-between gap-4">
             <div className="text-xs text-zinc-500 dark:text-zinc-400">
               {loading ? "Ищу…" : "Готово"}
