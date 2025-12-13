@@ -1,0 +1,22 @@
+{
+  "s1e1": {
+    "youtube_url": "https://www.youtube.com/watch?v=hF3SPkkNLHU",
+    "srt": "./s1e1.srt"
+  },
+  "s1e2": {
+    "youtube_url": "https://www.youtube.com/watch?v=J6FQEOnP4KU",
+    "srt": "./s1e2.srt"
+  },
+  "s1e3": {
+    "youtube_url": "https://www.youtube.com/watch?v=qEaM8IniO5I",
+    "srt": "./s1e3.srt"
+  },
+  "s1e4": {
+    "youtube_url": "https://www.youtube.com/watch?v=MngbfENDALI",
+    "srt": "./s1e4.srt"
+  },
+  "s1e5": {
+    "youtube_url": "https://www.youtube.com/watch?v=spWiWzbtVx4",
+    "srt": "./s1e5.srt"
+  }
+}
