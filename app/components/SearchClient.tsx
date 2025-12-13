@@ -118,7 +118,7 @@ export function SearchClient() {
       </div>
 
       {/* Clean "first match" overlay */}
-      {selected ? (
+      {/* {selected ? (
         <div className="fixed inset-x-0 bottom-[calc(112px+env(safe-area-inset-bottom))] bg-zinc-50/85 px-4 py-3 backdrop-blur dark:bg-black/70 sm:px-8">
           <div className="mx-auto flex w-full max-w-4xl items-start justify-between gap-4">
             <div className="min-w-0">
@@ -141,7 +141,7 @@ export function SearchClient() {
             </a>
           </div>
         </div>
-      ) : null}
+      ) : null} */}
 
       <div className="fixed inset-x-0 bottom-0 border-t border-black/10 bg-zinc-50/95 px-4 py-3 backdrop-blur dark:border-white/15 dark:bg-black/80 sm:px-8">
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-2">
