@@ -29,15 +29,69 @@ export function SearchClient() {
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [resultsOpen, setResultsOpen] = useState(false);
   const [shareStatus, setShareStatus] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const shareTimerRef = useRef<number | null>(null);
+  const resultItemRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const selected = useMemo(() => {
     if (!results.length) return null;
     const idx = Math.min(Math.max(0, selectedIndex), results.length - 1);
     return results[idx] ?? null;
   }, [results, selectedIndex]);
+
+  useEffect(() => {
+    // Keep the selected row visible while navigating.
+    if (!results.length) return;
+    const idx = Math.min(Math.max(0, selectedIndex), results.length - 1);
+    const el = resultItemRefs.current[idx];
+    el?.scrollIntoView({ block: "nearest" });
+  }, [results.length, selectedIndex]);
+
+  useEffect(() => {
+    // When new results arrive, keep the list collapsed by default.
+    setResultsOpen(false);
+  }, [results.length]);
+
+  useEffect(() => {
+    // Keyboard navigation: ↑/↓, PgUp/PgDn, Home/End.
+    if (!results.length) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      const ae = document.activeElement;
+      const tag = ae && "tagName" in ae ? (ae as HTMLElement).tagName : "";
+      const isTyping =
+        tag === "INPUT" || tag === "TEXTAREA" || (ae as HTMLElement | null)?.isContentEditable;
+      if (isTyping) return;
+
+      const max = results.length - 1;
+      const clamp = (n: number) => Math.min(Math.max(0, n), max);
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelectedIndex((i) => clamp(i + 1));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelectedIndex((i) => clamp(i - 1));
+      } else if (e.key === "PageDown") {
+        e.preventDefault();
+        setSelectedIndex((i) => clamp(i + 10));
+      } else if (e.key === "PageUp") {
+        e.preventDefault();
+        setSelectedIndex((i) => clamp(i - 10));
+      } else if (e.key === "Home") {
+        e.preventDefault();
+        setSelectedIndex(0);
+      } else if (e.key === "End") {
+        e.preventDefault();
+        setSelectedIndex(max);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [results.length]);
 
   function clearShareStatusSoon() {
     if (shareTimerRef.current != null) {
@@ -176,6 +230,19 @@ export function SearchClient() {
 
   return (
     <div className="min-h-dvh">
+      {/* Toast */}
+      {shareStatus ? (
+        <div className="fixed inset-x-0 bottom-[calc(112px+env(safe-area-inset-bottom)+12px)] z-50 flex justify-center px-4">
+          <div
+            role="status"
+            aria-live="polite"
+            className="rounded-xl bg-black/85 px-4 py-2 text-sm font-medium text-white shadow-lg ring-1 ring-black/20 backdrop-blur dark:bg-white/10 dark:text-white dark:ring-white/15"
+          >
+            {shareStatus}
+          </div>
+        </div>
+      ) : null}
+
       {/* Full-screen player (reserved space at bottom for input bar) */}
       <div className="fixed inset-0 bottom-[calc(112px+env(safe-area-inset-bottom))] bg-black">
         {selected ? (
@@ -198,45 +265,133 @@ export function SearchClient() {
       {/* Selected match overlay (with Share) */}
       {selected ? (
         <div className="fixed inset-x-0 bottom-[calc(112px+env(safe-area-inset-bottom))] bg-zinc-50/85 px-4 py-3 backdrop-blur dark:bg-black/70 sm:px-8">
-          <div className="mx-auto flex w-full max-w-4xl items-start justify-between gap-4">
-            <div className="min-w-0">
-              <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                <span className="font-mono">{selected.time}</span>
-                <span className="ml-2">· {selected.episodeKey}</span>
-                <span className="ml-2">· найдено: {results.length}</span>
-                {shareStatus ? (
-                  <span className="ml-2 text-emerald-600 dark:text-emerald-400">
-                    · {shareStatus}
+          <div className="mx-auto w-full max-w-4xl">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                  <span className="font-mono">{selected.time}</span>
+                  <span className="ml-2">· {selected.episodeKey}</span>
+                  <span className="ml-2">
+                    · {Math.min(Math.max(0, selectedIndex), results.length - 1) + 1}/{results.length}
                   </span>
+                </div>
+                <div className="mt-1 truncate text-sm text-zinc-800 dark:text-zinc-200">
+                  {selected.text}
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  className="rounded-lg bg-white/80 px-3 py-2 text-sm font-medium text-black ring-1 ring-black/10 backdrop-blur transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white/10 dark:text-white dark:ring-white/15 dark:hover:bg-white/15"
+                  disabled={results.length <= 1}
+                  onClick={() => setSelectedIndex((i) => Math.max(0, i - 1))}
+                  aria-label="Предыдущий результат"
+                  title="Предыдущий (↑)"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg bg-white/80 px-3 py-2 text-sm font-medium text-black ring-1 ring-black/10 backdrop-blur transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white/10 dark:text-white dark:ring-white/15 dark:hover:bg-white/15"
+                  disabled={results.length <= 1}
+                  onClick={() =>
+                    setSelectedIndex((i) => Math.min(results.length - 1, i + 1))
+                  }
+                  aria-label="Следующий результат"
+                  title="Следующий (↓)"
+                >
+                  ↓
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg bg-white/80 px-3 py-2 text-sm font-medium text-black ring-1 ring-black/10 backdrop-blur transition hover:bg-white dark:bg-white/10 dark:text-white dark:ring-white/15 dark:hover:bg-white/15"
+                  onClick={() => {
+                    void copyShareLink({
+                      episodeKey: selected.episodeKey,
+                      seconds: selected.startSec,
+                      phrase: q,
+                    });
+                  }}
+                >
+                  Поделиться
+                </button>
+                <a
+                  className="rounded-lg bg-black px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-black"
+                  href={selected.youtubeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  YouTube
+                </a>
+              </div>
+            </div>
+
+            {/* Scrollable list of all matches */}
+            {results.length > 1 ? (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between rounded-xl bg-white/70 px-3 py-2 text-left text-sm font-medium text-zinc-900 ring-1 ring-black/10 transition hover:bg-white/85 dark:bg-black/40 dark:text-zinc-100 dark:ring-white/15 dark:hover:bg-black/55 sm:px-4"
+                  onClick={() => setResultsOpen((v) => !v)}
+                  aria-expanded={resultsOpen}
+                >
+                  <span>Результаты ({results.length})</span>
+                  <span className="font-mono text-xs text-zinc-600 dark:text-zinc-300">
+                    {resultsOpen ? "▲" : "▼"}
+                  </span>
+                </button>
+
+                {resultsOpen ? (
+                  <div className="mt-2 max-h-[28vh] overflow-y-auto rounded-xl bg-white/70 ring-1 ring-black/10 dark:bg-black/40 dark:ring-white/15">
+                    <div className="divide-y divide-black/5 dark:divide-white/10">
+                      {results.map((r, idx) => {
+                        const isActive = idx === selectedIndex;
+                        return (
+                          <button
+                            key={`${r.episodeKey}:${r.cueIndex}:${r.startSec}`}
+                            ref={(el) => {
+                              resultItemRefs.current[idx] = el;
+                            }}
+                            type="button"
+                            className={[
+                              "w-full px-3 py-2 text-left transition sm:px-4",
+                              isActive
+                                ? "bg-black text-white dark:bg-white dark:text-black"
+                                : "hover:bg-black/5 dark:hover:bg-white/10",
+                            ].join(" ")}
+                            onClick={() => setSelectedIndex(idx)}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div
+                                className={[
+                                  "text-[11px]",
+                                  isActive
+                                    ? "text-white/85 dark:text-black/70"
+                                    : "text-zinc-500 dark:text-zinc-400",
+                                ].join(" ")}
+                              >
+                                <span className="font-mono">{r.time}</span>
+                                <span className="ml-2">· {r.episodeKey}</span>
+                              </div>
+                            </div>
+                            <div
+                              className={[
+                                "mt-1 line-clamp-2 text-sm",
+                                isActive
+                                  ? "text-white dark:text-black"
+                                  : "text-zinc-800 dark:text-zinc-200",
+                              ].join(" ")}
+                            >
+                              {r.text}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 ) : null}
               </div>
-              <div className="mt-1 truncate text-sm text-zinc-800 dark:text-zinc-200">
-                {selected.text}
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                className="rounded-lg bg-white/80 px-3 py-2 text-sm font-medium text-black ring-1 ring-black/10 backdrop-blur transition hover:bg-white dark:bg-white/10 dark:text-white dark:ring-white/15 dark:hover:bg-white/15"
-                onClick={() => {
-                  void copyShareLink({
-                    episodeKey: selected.episodeKey,
-                    seconds: selected.startSec,
-                    phrase: q,
-                  });
-                }}
-              >
-                Поделиться
-              </button>
-              <a
-                className="rounded-lg bg-black px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-black"
-                href={selected.youtubeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                YouTube
-              </a>
-            </div>
+            ) : null}
           </div>
         </div>
       ) : null}
