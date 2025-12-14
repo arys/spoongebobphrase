@@ -28,37 +28,81 @@ export function SearchClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [shareStatus, setShareStatus] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const shareTimerRef = useRef<number | null>(null);
 
-  const selected = useMemo(
-    () => (results.length ? results[0] : null),
-    [results]
-  );
+  const selected = useMemo(() => {
+    if (!results.length) return null;
+    const idx = Math.min(Math.max(0, selectedIndex), results.length - 1);
+    return results[idx] ?? null;
+  }, [results, selectedIndex]);
 
-  async function runSearch(query: string) {
+  function clearShareStatusSoon() {
+    if (shareTimerRef.current != null) {
+      window.clearTimeout(shareTimerRef.current);
+      shareTimerRef.current = null;
+    }
+    shareTimerRef.current = window.setTimeout(() => {
+      setShareStatus(null);
+      shareTimerRef.current = null;
+    }, 1500);
+  }
+
+  async function copyShareLink(params: {
+    episodeKey: string;
+    seconds: number;
+    phrase: string;
+  }) {
+    const { episodeKey, seconds, phrase } = params;
+    const u = new URL(window.location.href);
+    u.pathname = "/";
+    u.searchParams.set("episode", episodeKey);
+    u.searchParams.set("seconds", String(Math.max(0, Math.floor(seconds))));
+    u.searchParams.set("phrase", phrase.trim());
+    const link = u.toString();
+
+    try {
+      await navigator.clipboard.writeText(link);
+      setShareStatus("Ссылка скопирована");
+      clearShareStatusSoon();
+    } catch {
+      // Fallback: show prompt so user can copy manually
+      window.prompt("Скопируйте ссылку:", link);
+    }
+  }
+
+  async function runSearch(
+    query: string,
+    opts?: { episode?: string; targetSeconds?: number }
+  ) {
     const trimmed = query.trim();
     if (!trimmed) {
       abortRef.current?.abort();
       setLoading(false);
       setError(null);
       setResults([]);
+      setSelectedIndex(0);
       return;
     }
 
     setLoading(true);
     setError(null);
     setResults([]);
+    setSelectedIndex(0);
 
     try {
       abortRef.current?.abort();
       const ac = new AbortController();
       abortRef.current = ac;
 
+      const episode = (opts?.episode ?? "all").trim() || "all";
       const res = await fetch(
-        `/api/search?q=${encodeURIComponent(trimmed)}&episode=all`,
+        `/api/search?q=${encodeURIComponent(trimmed)}&episode=${encodeURIComponent(episode)}`,
         {
-        method: "GET",
-        signal: ac.signal,
+          method: "GET",
+          signal: ac.signal,
         }
       );
       const data = (await res.json()) as ApiResponse;
@@ -77,6 +121,22 @@ export function SearchClient() {
         });
 
         setResults(withAutoplay);
+        if (withAutoplay.length > 0 && opts?.targetSeconds != null) {
+          const target = Math.max(0, Math.floor(opts.targetSeconds));
+          let bestIdx = 0;
+          let bestDist = Number.POSITIVE_INFINITY;
+          for (let i = 0; i < withAutoplay.length; i++) {
+            const dist = Math.abs(withAutoplay[i].startSec - target);
+            if (dist < bestDist) {
+              bestDist = dist;
+              bestIdx = i;
+              if (dist === 0) break;
+            }
+          }
+          setSelectedIndex(bestIdx);
+        } else {
+          setSelectedIndex(0);
+        }
         if (data.results.length === 0) {
           setError("Ничего не найдено");
         }
@@ -92,7 +152,25 @@ export function SearchClient() {
   }
 
   useEffect(() => {
-    void runSearch(q);
+    const sp = new URLSearchParams(window.location.search);
+    const phrase = (sp.get("phrase") ?? "").trim();
+    const episode = (sp.get("episode") ?? "").trim();
+    const secondsRaw = (sp.get("seconds") ?? "").trim();
+    const seconds = secondsRaw ? Number(secondsRaw) : null;
+
+    if (phrase) setQ(phrase);
+
+    // If deep link is present: search within the episode and select the exact second.
+    if (phrase && episode && Number.isFinite(seconds)) {
+      void runSearch(phrase, {
+        episode,
+        targetSeconds: seconds as number,
+      });
+      return;
+    }
+
+    // Default behavior: initial search across all episodes.
+    void runSearch(phrase || q);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -117,8 +195,8 @@ export function SearchClient() {
         )}
       </div>
 
-      {/* Clean "first match" overlay */}
-      {/* {selected ? (
+      {/* Selected match overlay (with Share) */}
+      {selected ? (
         <div className="fixed inset-x-0 bottom-[calc(112px+env(safe-area-inset-bottom))] bg-zinc-50/85 px-4 py-3 backdrop-blur dark:bg-black/70 sm:px-8">
           <div className="mx-auto flex w-full max-w-4xl items-start justify-between gap-4">
             <div className="min-w-0">
@@ -126,22 +204,42 @@ export function SearchClient() {
                 <span className="font-mono">{selected.time}</span>
                 <span className="ml-2">· {selected.episodeKey}</span>
                 <span className="ml-2">· найдено: {results.length}</span>
+                {shareStatus ? (
+                  <span className="ml-2 text-emerald-600 dark:text-emerald-400">
+                    · {shareStatus}
+                  </span>
+                ) : null}
               </div>
               <div className="mt-1 truncate text-sm text-zinc-800 dark:text-zinc-200">
                 {selected.text}
               </div>
             </div>
-            <a
-              className="shrink-0 rounded-lg bg-black px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-black"
-              href={selected.youtubeUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              YouTube
-            </a>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                className="rounded-lg bg-white/80 px-3 py-2 text-sm font-medium text-black ring-1 ring-black/10 backdrop-blur transition hover:bg-white dark:bg-white/10 dark:text-white dark:ring-white/15 dark:hover:bg-white/15"
+                onClick={() => {
+                  void copyShareLink({
+                    episodeKey: selected.episodeKey,
+                    seconds: selected.startSec,
+                    phrase: q,
+                  });
+                }}
+              >
+                Поделиться
+              </button>
+              <a
+                className="rounded-lg bg-black px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-black"
+                href={selected.youtubeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                YouTube
+              </a>
+            </div>
           </div>
         </div>
-      ) : null} */}
+      ) : null}
 
       <div className="fixed inset-x-0 bottom-0 border-t border-black/10 bg-zinc-50/95 px-4 py-3 backdrop-blur dark:border-white/15 dark:bg-black/80 sm:px-8">
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-2">
